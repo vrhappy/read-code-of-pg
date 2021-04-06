@@ -1,0 +1,42 @@
+@startuml
+[*] --> FTS_PROBE_SEGMENT : init ftsInfo
+FTS_PROBE_SEGMENT -> StateSocket : start probe
+StateSocket -down-> FTS_PROBE_SUCCESS
+StateSocket -> FTS_PROBE_FAIL : connect/send/receive failed
+FTS_PROBE_SEGMENT : a start state for fts probe
+FTS_PROBE_SEGMENT : ftsInfo
+
+state "Communicate with segment\n by libpq" as StateSocket {
+  state "ftsConnect()" as long1
+  long1 : "create libpq connection\n with segment"
+  [*] --> long1
+  state "ftsPoll()" as poll
+  state "update ftsInfo \nwith message" as update
+  long1 -down-> poll
+  poll --> ftsSend : if write ready
+  poll --> ftsReceive : if read ready
+  ftsReceive -down-> update
+}
+
+state "Update catalog\n gp_configuration" as UpdateConfig {
+
+}
+
+FTS_PROBE_SUCCESS -> FTS_PROBE_WAIT : mirror is down but retryRequested=True
+
+FTS_PROBE_SUCCESS -> UpdateConfig : no further state
+UpdateConfig --> [*]
+
+FTS_PROBE_SUCCESS -down[#black]-> UpdateConfig : mirror is down\n,close sync
+UpdateConfig -down[#black,bold]-> FTS_SYNCREP_OFF_SEGMENT
+
+
+
+FTS_PROBE_FAIL --> [*] : double\n fault
+
+FTS_PROBE_FAIL -down-> FTS_PROBE_WAIT : retry_count++
+FTS_PROBE_FAIL -[#blue]> UpdateConfig : primary down\n,try to promote mirror
+UpdateConfig -down[#blue,bold]-> FTS_PROMOTE_SEGMENT
+FTS_PROBE_WAIT -up-> FTS_PROBE_SEGMENT
+FTS_PROBE_FAIL -> FTS_PROBE_FAIL : retry \nexhaused
+@enduml
