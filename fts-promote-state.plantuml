@@ -1,0 +1,25 @@
+@startuml
+[*] --> FTS_PROMOTE_SEGMENT : start PROMOTE
+FTS_PROMOTE_SEGMENT -right[#blue]-> StateSocket
+StateSocket -[#blue]-> FTS_PROMOTE_SUCCESS
+StateSocket -[#blue]-> FTS_PROBE_SUCCESS : role is mirror
+FTS_PROMOTE_SUCCESS -[#blue]-> [*]
+StateSocket -[#blue]-> FTS_PROMOTE_FAIL : connect/send/receive failed
+FTS_PROMOTE_FAIL -[#blue]-> FTS_PROMOTE_WAIT : retry_count++
+FTS_PROMOTE_WAIT -[#blue]-> FTS_PROMOTE_SEGMENT
+FTS_PROMOTE_FAIL -[#blue]-> FTS_PROMOTE_FAIL : retry \nexhaused
+FTS_PROMOTE_FAIL -[#blue]-> [*]
+FTS_PROBE_SUCCESS -[#blue]-> FTS_PROMOTE_SEGMENT : retry promote
+
+state "Communicate with segment\n by libpq" as StateSocket {
+  state "ftsConnect()" as long1
+  long1 : "create libpq connection\n with segment"
+  [*] --> long1
+  state "ftsPoll()" as poll
+  state "update ftsInfo \nwith message" as update
+  long1 -down-> poll
+  poll --> ftsSend : if write ready
+  poll --> ftsReceive : if read ready
+  ftsReceive -down-> update
+}
+@enduml
