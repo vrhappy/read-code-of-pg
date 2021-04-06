@@ -1,0 +1,23 @@
+@startuml
+[*] --> FTS_SYNCREP_OFF_SEGMENT : start SYNCREP_OFF
+FTS_SYNCREP_OFF_SEGMENT -right[#black]-> StateSocket
+StateSocket -[#black]> FTS_SYNCREP_OFF_FAIL : connect/send/\nreceive failed
+StateSocket -[#black]> FTS_SYNCREP_OFF_SUCCESS
+FTS_SYNCREP_OFF_SUCCESS -[#black]-> [*]
+FTS_SYNCREP_OFF_FAIL -[#black]-> FTS_SYNCREP_OFF_WAIT : retry_count++
+FTS_SYNCREP_OFF_WAIT -[#black]-> FTS_SYNCREP_OFF_SEGMENT
+FTS_SYNCREP_OFF_FAIL -[#black]> FTS_SYNCREP_OFF_FAIL : retry \nexhaused
+FTS_SYNCREP_OFF_FAIL -[#black]-> [*]
+
+state "Communicate with segment\n by libpq" as StateSocket {
+  state "ftsConnect()" as long1
+  long1 : "create libpq connection\n with segment"
+  [*] --> long1
+  state "ftsPoll()" as poll
+  state "update ftsInfo \nwith message" as update
+  long1 -down-> poll
+  poll --> ftsSend : if write ready
+  poll --> ftsReceive : if read ready
+  ftsReceive -down-> update
+}
+@enduml
