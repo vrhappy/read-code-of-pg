@@ -1,0 +1,35 @@
+@startuml
+title fts probe sequence diagram 
+
+participant "fts process" as fts
+participant "segment postmaster" as segment
+
+fts -> segment : send create pq connection request
+note left : ftsConnect()
+note right fts 
+//...//7p...user ssadmin database postgres gpconntype fts//...//
+end note
+
+create participant "backend process" as backend
+segment -> backend ++ : fork backend process
+backend --> fts : connected ok
+
+note left : ftsPoll()
+fts -> backend : if socket is writable, send PROBE message
+note left : ftsSend()
+note right fts : Q...PROBE dbid=%d contid=%d
+
+backend --> fts : response the information of primary and mirror
+note right : HandleFtsMessage()
+note left backend
+T...is_mirror_up...is_in_sync...is_syncrep_enabled...is_
+role_mirror...request_retry...D...//values//...PROBE.Z...
+end note
+note left : ftsReceive()
+
+fts -> backend : close the pq connection
+note left : processResponse()
+note right fts : X...
+backend -> backend !! : process exit
+
+@enduml
